@@ -3,6 +3,7 @@
 #include <vector>
 #include <sstream>
 #include <cstdlib>
+#include <fstream>
 
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
@@ -12,6 +13,11 @@
 #include <pwd.h>
 #include <climits>
 #endif
+
+struct Config {
+    std::string vfsPath;
+    std::string scriptPath;
+};
 
 std::string getUsername() {
 #if defined(_WIN32)
@@ -61,6 +67,50 @@ std::string getHostname() {
 #endif
 }
 
+bool parseArgs(int argc, char* argv[], Config& config) {
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "--vfs" || arg == "-v") {
+            if (i + 1 < argc) {
+                config.vfsPath = argv[++i];
+            }
+            else {
+                std::cerr << "Error: Option " << arg << " requires a path argument.\n";
+                return false;
+            }
+        }
+        else if (arg == "--script" || arg == "-s") {
+            if (i + 1 < argc) {
+                config.scriptPath = argv[++i];
+            }
+            else {
+                std::cerr << "Error: Option " << arg << " requires a file path argument.\n";
+                return false;
+            }
+        }
+        else if (arg == "--help" || arg == "-h") {
+            std::cout << "Usage: " << argv[0] << " --vfs <vfs_path> [--script <script_path>]\n";
+            std::exit(0);
+        }
+        else {
+            std::cerr << "Error: Unknown argument " << arg << "\n";
+            return false;
+        }
+    }
+
+    if (config.vfsPath.empty()) {
+        std::cerr << "Error: Missing required parameter --vfs <path>\n";
+        return false;
+    }
+
+    return true;
+}
+
+void dumpConfig(const Config& config) {
+    std::cout << "vfs = " << config.vfsPath << "\n";
+    std::cout << "script = " << (config.scriptPath.empty() ? "<none>" : config.scriptPath) << "\n";
+}
+
 
 std::vector<std::string> parseInput(const std::string& input) {
     std::vector<std::string> tokens;
@@ -72,45 +122,77 @@ std::vector<std::string> parseInput(const std::string& input) {
     return tokens;
 }
 
-int main() {
-    const std::string username = getUsername();
-    const std::string hostname = getHostname();
-    const std::string prompt = username + "@" + hostname + ":~$ ";
+bool executeCommand(const std::vector<std::string>& tokens, const Config& config) {
+    if (tokens.empty()) return true;
+
+    const std::string& cmd = tokens[0];
+
+    if (cmd == "exit") {
+        if (tokens.size() > 1) {
+            std::cerr << "exit: too many arguments\n";
+            return true;
+        }
+        return false;
+    }
+    else if (cmd == "conf-dump") {
+        dumpConfig(config);
+    }
+    else if (cmd == "ls" || cmd == "cd") {
+        std::cout << "[STUB] Executing command: " << cmd << "\n";
+        std::cout << "Arguments (" << tokens.size() - 1 << "): ";
+        for (size_t i = 1; i < tokens.size(); ++i) {
+            std::cout << "\"" << tokens[i] << "\" ";
+        }
+        std::cout << "\n";
+    }
+    else {
+        std::cerr << cmd << ": command not found\n";
+    }
+
+    return true;
+}
+
+int main(int argc, char* argv[]) {
+    Config config;
+    if (!parseArgs(argc, argv, config)) {
+        return 1;
+    }
+
+    std::cout << "=== Debug: Loaded Configuration ===\n";
+    dumpConfig(config);
+    std::cout << "===================================\n\n";
+
+    const std::string prompt = getUsername() + "@" + getHostname() + ":~$ ";
+
+    if (!config.scriptPath.empty()) {
+        std::ifstream scriptFile(config.scriptPath);
+        if (!scriptFile.is_open()) {
+            std::cerr << "Error: Could not open script file: " << config.scriptPath << "\n";
+        }
+        else {
+            std::string line;
+            while (std::getline(scriptFile, line)) {
+                std::cout << prompt << line << "\n";
+
+                auto tokens = parseInput(line);
+                if (!executeCommand(tokens, config)) {
+                    return 0;
+                }
+            }
+        }
+    }
 
     std::string line;
     while (true) {
         std::cout << prompt;
-
-        // Обработка EOF
         if (!std::getline(std::cin, line)) {
             std::cout << "\n";
             break;
         }
 
         auto tokens = parseInput(line);
-        if (tokens.empty()) {
-            continue;
-        }
-
-        const std::string& cmd = tokens[0];
-
-        if (cmd == "exit") {
-            if (tokens.size() > 1) {
-                std::cerr << "exit: too many arguments\n";
-                continue;
-            }
+        if (!executeCommand(tokens, config)) {
             break;
-        }
-        else if (cmd == "ls" || cmd == "cd") {
-            std::cout << "[STUB] Executing command: " << cmd << "\n";
-            std::cout << "Arguments (" << tokens.size() - 1 << "): ";
-            for (size_t i = 1; i < tokens.size(); ++i) {
-                std::cout << "\"" << tokens[i] << "\" ";
-            }
-            std::cout << "\n";
-        }
-        else {
-            std::cerr << cmd << ": command not found\n";
         }
     }
 

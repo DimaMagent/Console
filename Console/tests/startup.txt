@@ -1,0 +1,5 @@
+conf-dump
+ls -l /
+cd /home/user
+invalid_cmd --flag
+exit

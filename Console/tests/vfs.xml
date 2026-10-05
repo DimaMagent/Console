@@ -1,0 +1,12 @@
+<vfs>
+    <dir name="home">
+        <dir name="user">
+            <file name="notes.txt">Hello from virtual filesystem!</file>
+            <file name="encoded.txt" encoding="base64">QmFzZTY0IGRlY29kZWQgc3VjY2Vzc2Z1bGx5IQ==</file>
+        </dir>
+    </dir>
+    <dir name="etc">
+        <file name="hosts">127.0.0.1 localhost</file>
+    </dir>
+    <file name="readme.txt">UNIX Shell Emulator VFS Root</file>
+</vfs>

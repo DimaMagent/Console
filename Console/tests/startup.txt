@@ -1,6 +1,19 @@
 conf-dump
-vfs-dump
+who
+date
 ls
-cd home
-invalid_cmd
+cat readme.txt
+cd home/user
+ls
+cat notes.txt
+cat encoded.txt
+cd ..
+ls
+cd /
+ls /etc
+cat /etc/hosts
+cat /home
+cd non_existent_folder
+cat non_existent_file.txt
+unknown_command
 exit

@@ -6,6 +6,9 @@
 #include <memory>
 #include <map>
 #include <fstream>
+#include <chrono>
+#include <ctime>
+#include <iomanip>
 #include "VFSXmlParser.hpp"
 #include "VFS.hpp"
 
@@ -127,7 +130,10 @@ std::vector<std::string> parseInput(const std::string& input) {
     return tokens;
 }
 
-bool executeCommand(const std::vector<std::string>& tokens, const Config& config, const VFS& vfs) {
+bool executeCommand(const std::vector<std::string>& tokens,
+                    const Config& config,
+                    const VFS& vfs,
+                    std::shared_ptr<VFSNode>& cwd) {
     if (tokens.empty()) return true;
 
     const std::string& cmd = tokens[0];
@@ -142,18 +148,75 @@ bool executeCommand(const std::vector<std::string>& tokens, const Config& config
     else if (cmd == "conf-dump") {
         dumpConfig(config);
     }
+    else if (cmd == "who") {
+        std::cout << getUsername() << "\n";
+    }
+    else if (cmd == "date") {
+        auto now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+        std::tm tm_buf;
+#if defined(_WIN32)
+        localtime_s(&tm_buf, &now);
+#else
+        localtime_r(&now, &tm_buf);
+#endif
+        std::cout << std::put_time(&tm_buf, "%a %b %e %H:%M:%S %Y") << "\n";
+    }
     else if (cmd == "vfs-dump") {
         std::cout << "=== VFS Tree in Memory ===\n";
         vfs.printTree(vfs.root);
         std::cout << "==========================\n";
     }
-    else if (cmd == "ls" || cmd == "cd") {
-        std::cout << "[STUB] Executing command: " << cmd << "\n";
-        std::cout << "Arguments (" << tokens.size() - 1 << "): ";
-        for (size_t i = 1; i < tokens.size(); ++i) {
-            std::cout << "\"" << tokens[i] << "\" ";
+    else if (cmd == "cd") {
+        std::string targetPath = (tokens.size() > 1) ? tokens[1] : "/";
+        auto node = vfs.resolvePath(targetPath, cwd);
+        if (!node) {
+            std::cerr << "cd: " << targetPath << ": No such file or directory\n";
         }
-        std::cout << "\n";
+        else if (!node->isDirectory) {
+            std::cerr << "cd: " << targetPath << ": Not a directory\n";
+        }
+        else {
+            cwd = node;
+        }
+    }
+    else if (cmd == "ls") {
+        std::string targetPath = (tokens.size() > 1) ? tokens[1] : ".";
+        auto node = vfs.resolvePath(targetPath, cwd);
+        if (!node) {
+            std::cerr << "ls: cannot access '" << targetPath << "': No such file or directory\n";
+        }
+        else if (!node->isDirectory) {
+            std::cout << node->name << "\n";
+        }
+        else {
+            for (const auto& [name, child] : node->children) {
+                if (child->isDirectory) {
+                    std::cout << name << "/  ";
+                }
+                else {
+                    std::cout << name << "  ";
+                }
+            }
+            std::cout << "\n";
+        }
+    }
+    else if (cmd == "cat") {
+        if (tokens.size() < 2) {
+            std::cerr << "cat: missing file argument\n";
+            return true;
+        }
+        for (size_t i = 1; i < tokens.size(); ++i) {
+            auto node = vfs.resolvePath(tokens[i], cwd);
+            if (!node) {
+                std::cerr << "cat: " << tokens[i] << ": No such file or directory\n";
+            }
+            else if (node->isDirectory) {
+                std::cerr << "cat: " << tokens[i] << ": Is a directory\n";
+            }
+            else {
+                std::cout << node->content << "\n";
+            }
+        }
     }
     else {
         std::cerr << cmd << ": command not found\n";
@@ -179,7 +242,13 @@ int main(int argc, char* argv[]) {
     dumpConfig(config);
     std::cout << "===================================\n\n";
 
-    const std::string prompt = getUsername() + "@" + getHostname() + ":~$ ";
+    std::shared_ptr<VFSNode> cwd = vfs.root;
+    const std::string username = getUsername();
+    const std::string hostname = getHostname();
+
+    auto getPrompt = [&]() {
+        return username + "@" + hostname + ":" + cwd->getFullPath() + "$ ";
+        };
 
     if (!config.scriptPath.empty()) {
         std::ifstream scriptFile(config.scriptPath);
@@ -189,10 +258,10 @@ int main(int argc, char* argv[]) {
         else {
             std::string line;
             while (std::getline(scriptFile, line)) {
-                std::cout << prompt << line << "\n";
+                std::cout << getPrompt() << line << "\n";
 
                 auto tokens = parseInput(line);
-                if (!executeCommand(tokens, config, vfs)) {
+                if (!executeCommand(tokens, config, vfs, cwd)) {
                     return 0;
                 }
             }
@@ -201,14 +270,14 @@ int main(int argc, char* argv[]) {
 
     std::string line;
     while (true) {
-        std::cout << prompt;
+        std::cout << getPrompt();
         if (!std::getline(std::cin, line)) {
             std::cout << "\n";
             break;
         }
 
         auto tokens = parseInput(line);
-        if (!executeCommand(tokens, config, vfs)) {
+        if (!executeCommand(tokens, config, vfs, cwd)) {
             break;
         }
     }

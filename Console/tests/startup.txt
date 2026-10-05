@@ -2,18 +2,14 @@ conf-dump
 who
 date
 ls
-cat readme.txt
+touch new_file.txt
+ls
+cat new_file.txt
 cd home/user
+touch doc1.txt doc2.txt
 ls
-cat notes.txt
-cat encoded.txt
-cd ..
-ls
-cd /
+touch /etc/new_config.conf
 ls /etc
-cat /etc/hosts
-cat /home
-cd non_existent_folder
-cat non_existent_file.txt
-unknown_command
+touch
+touch invalid_dir/file.txt
 exit

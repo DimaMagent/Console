@@ -218,6 +218,40 @@ bool executeCommand(const std::vector<std::string>& tokens,
             }
         }
     }
+    else if (cmd == "touch") {
+        if (tokens.size() < 2) {
+            std::cerr << "touch: missing file operand\n";
+            return true;
+        }
+
+        for (size_t i = 1; i < tokens.size(); ++i) {
+            const std::string& path = tokens[i];
+
+            size_t lastSlash = path.find_last_of('/');
+            std::string dirPath = (lastSlash == std::string::npos) ? "." : path.substr(0, lastSlash);
+            if (dirPath.empty()) dirPath = "/";
+            std::string fileName = (lastSlash == std::string::npos) ? path : path.substr(lastSlash + 1);
+
+            if (fileName.empty()) {
+                std::cerr << "touch: cannot touch '" << path << "': Invalid argument\n";
+                continue;
+            }
+
+            auto parentDir = vfs.resolvePath(dirPath, cwd);
+            if (!parentDir || !parentDir->isDirectory) {
+                std::cerr << "touch: cannot touch '" << path << "': No such file or directory\n";
+                continue;
+            }
+
+            // Если файл уже существует — ничего не делаем (сохраняем его)
+            auto it = parentDir->children.find(fileName);
+            if (it == parentDir->children.end()) {
+                auto newFile = std::make_shared<VFSNode>(fileName, false);
+                newFile->parent = parentDir;
+                parentDir->children[fileName] = newFile;
+            }
+        }
+    }
     else {
         std::cerr << cmd << ": command not found\n";
     }

@@ -1,5 +1,6 @@
 conf-dump
-ls -l /
-cd /home/user
-invalid_cmd --flag
+vfs-dump
+ls
+cd home
+invalid_cmd
 exit

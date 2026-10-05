@@ -1,0 +1,5 @@
+<vfs>
+    <dir name="root">
+        <file name="hello.txt">Hello World!</file>
+    </dir>
+</vfs>

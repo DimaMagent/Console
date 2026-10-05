@@ -1,0 +1,17 @@
+<vfs>
+    <dir name="root">
+        <dir name="home">
+            <dir name="user">
+                <dir name="documents">
+                    <file name="notes.txt">Deep nested text file.</file>
+                    <file name="secret.bin" encoding="base64">U0VDUkVUX0RBVEFfMTIzNA==</file>
+                </dir>
+                <file name="profile.json">{"user": "admin"}</file>
+            </dir>
+        </dir>
+        <dir name="etc">
+            <file name="config.conf">mode=production</file>
+        </dir>
+        <file name="readme.md">Root README</file>
+    </dir>
+</vfs>

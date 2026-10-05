@@ -3,7 +3,11 @@
 #include <vector>
 #include <sstream>
 #include <cstdlib>
+#include <memory>
+#include <map>
 #include <fstream>
+#include "VFSXmlParser.hpp"
+#include "VFS.hpp"
 
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
@@ -13,6 +17,7 @@
 #include <pwd.h>
 #include <climits>
 #endif
+
 
 struct Config {
     std::string vfsPath;
@@ -122,7 +127,7 @@ std::vector<std::string> parseInput(const std::string& input) {
     return tokens;
 }
 
-bool executeCommand(const std::vector<std::string>& tokens, const Config& config) {
+bool executeCommand(const std::vector<std::string>& tokens, const Config& config, const VFS& vfs) {
     if (tokens.empty()) return true;
 
     const std::string& cmd = tokens[0];
@@ -136,6 +141,11 @@ bool executeCommand(const std::vector<std::string>& tokens, const Config& config
     }
     else if (cmd == "conf-dump") {
         dumpConfig(config);
+    }
+    else if (cmd == "vfs-dump") {
+        std::cout << "=== VFS Tree in Memory ===\n";
+        vfs.printTree(vfs.root);
+        std::cout << "==========================\n";
     }
     else if (cmd == "ls" || cmd == "cd") {
         std::cout << "[STUB] Executing command: " << cmd << "\n";
@@ -155,6 +165,13 @@ bool executeCommand(const std::vector<std::string>& tokens, const Config& config
 int main(int argc, char* argv[]) {
     Config config;
     if (!parseArgs(argc, argv, config)) {
+        std::cerr << "Usage: " << argv[0] << " --vfs <vfs_path> [--script <script_path>]\n";
+        return 1;
+    }
+
+    VFS vfs;
+    if (!VFSXmlParser::loadVFS(config.vfsPath, vfs)) {
+        std::cerr << "Error: Failed to initialize VFS from " << config.vfsPath << "\n";
         return 1;
     }
 
@@ -175,7 +192,7 @@ int main(int argc, char* argv[]) {
                 std::cout << prompt << line << "\n";
 
                 auto tokens = parseInput(line);
-                if (!executeCommand(tokens, config)) {
+                if (!executeCommand(tokens, config, vfs)) {
                     return 0;
                 }
             }
@@ -191,7 +208,7 @@ int main(int argc, char* argv[]) {
         }
 
         auto tokens = parseInput(line);
-        if (!executeCommand(tokens, config)) {
+        if (!executeCommand(tokens, config, vfs)) {
             break;
         }
     }
